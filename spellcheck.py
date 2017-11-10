@@ -1,57 +1,81 @@
 import csv
-import pandas
-import distance
+import pandas as pd
+import codecheck
+import re
+import sys
 
-def spellcheck(file, n):
-	wordlist = getList(n)
+#check spelling in basic_level and word/obejct column and print out error log csv
+def check(file):
 	hasBasic, isAudio = clean(file)
 
 	df = pd.read_csv(file, header = 0, keep_default_na=False)
 
-	if "word" in list(df):
-		errorList = getError(df, "word", "basic_level", wordlist)
-	else:
-		errorList = getError(df, "labeled_object.object", "labeled_object.basic_level", wordlist)
-	
+	errorList = getError(df, hasBasic, isAudio)
 
+	logPath = newpath(file, isAudio)
 
-def getError(df, objectC, basicC, wordlist):
+	with open(logPath, 'wb') as writefile:
+		writer = csv.writer(writefile)
+		for n in errorList:
+			writer.writerow(n)
+
+#get errorlist
+def getError(df, hasBasic, isAudio):
 	errorList = []
+	if isAudio:
+		objectC = "word"
+		basicC = "basic_level"
+	else:
+		objectC = "labeled_object.object"
+		basicC = "labeled_object.basic_level"
+
 	for row in range(0, len(df.index)):
 		word = df.get_value(row, objectC)
-		if not hasMatch(word, wordlist):
-			errorList.append([row+2, word])
-		word = df.get_value(row, basicC)
-		if not hasMatch(word, wordlist):
-			errorList.append([row+2, word])
+		if "+" in word:
+			for each in word.split("+"):
+				isWord, recWords = codecheck.spellcheck(word)
+				if not isWord:
+					errorList.append([row+2, word, recWords])
+		else:
+			isWord, recWords = codecheck.spellcheck(word)
+			if not isWord:
+				errorList.append([row+2, word, recWords])
+		if hasBasic:
+			word = df.get_value(row, basicC)
+			isWord, recWords = codecheck.spellcheck(word)
+			if not isWord:
+				errorList.append([row+2, word, recWords])
 
 	return errorList
 
-def getList(n):
-	freqFile = "word_freq.csv"
-	wordlist = []
-	with open(freqFile, 'rU') as readfile:
-		reader = csv.reader(readfile)
-		for row in reader:
-			for word in row[0:n]:
-				if "+" in word:
-					wordlist.extend([s.lower().replace(" ", "") for s in word.split("+")])
-				else:
-					word.append(word.lower().replace(" ", ""))
 
-	return wordlist
+#get single file name from path
+def getFileName(path):
+	pathList = re.split("\\\|/", path)
+	fileName = pathList[-1]
+	return fileName
 
-def hasMatch(word, wordlist):
-	word = word.lower().replace(" ", "")
-	minDis = float("inf")
+#combine path list into single path string
+def combinePath(pathList):
+	fullName = "/"
+	for i in range(len(pathList)):
+		if ".csv" in pathList[i] or not pathList[i]:
+			continue
+		fullName += pathList[i]
+		fullName += "/"
+	return fullName
 
-	for item in wordlist:
-		dis = distance.levenshtein(word, item)
-		minDis = min(dis, maxDis)
+#get new_file_writeTo path
+def newpath(file, isAudio):
+	fileName = getFileName(file)
+	fileName = fileName.split(".")[0]
+	fileName += "_spellcheck_log.csv"
+	newpathList = re.split("\\\|/", file)
+	fullName = combinePath(newpathList)
+	fullName += fileName
+	return fullName
 
-	return minDis == 0
-
-
+#clean csv file for pandas dataframe reading and check file type
 def clean(file):
 	rowlist = []
 	hasBasic = True
@@ -62,7 +86,7 @@ def clean(file):
 		for row in rowlist:
 			if row[-1] == "":
 				del row[-1]
-		if "basic_level" not in rowlist[0] and "labeled_object.basic_level" not in rowlist[0]:
+		if "basic_level" not in rowlist[0] or "labeled_object.basic_level" not in rowlist[0]:
 			hasBasic = False
 			if not "word" in rowlist[0]:
 				isAudio = False
@@ -73,3 +97,11 @@ def clean(file):
 			writer.writerow(n)
 
 	return hasBasic, isAudio
+
+if __name__ == "__main__":
+
+	#input argument from terminal 
+	file = sys.argv[1]
+
+	#call main merge function
+	check(file)
