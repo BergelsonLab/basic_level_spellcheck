@@ -5,12 +5,12 @@ import re
 import sys
 
 #check spelling in basic_level and word/obejct column and print out error log csv
-def check(file):
+def check(file, n):
 	hasBasic, isAudio = clean(file)
 
 	df = pd.read_csv(file, header = 0, keep_default_na=False)
 
-	errorList = getError(df, hasBasic, isAudio)
+	errorList = getError(df, hasBasic, isAudio, n)
 
 	logPath = newpath(file, isAudio)
 
@@ -19,8 +19,22 @@ def check(file):
 		for n in errorList:
 			writer.writerow(n)
 
+	printError(errorList, logPath)
+
+
+def printError(errorlist, logPath):
+	asterisk = "********************************************************************"
+	nl = "\n"
+	alert = nl + asterisk + nl + asterisk + nl 
+	errorCount = len(errorlist)
+
+	errorMsgP = nl + repr(errorCount) + " error(s) are detected in the file." + nl
+	logMsg = nl + "All errors recorded in " + logPath + nl
+
+	print alert + errorMsgP + logMsg + alert
+
 #get errorlist
-def getError(df, hasBasic, isAudio):
+def getError(df, hasBasic, isAudio, n):
 	errorList = []
 	if isAudio:
 		objectC = "word"
@@ -33,19 +47,24 @@ def getError(df, hasBasic, isAudio):
 		word = df.get_value(row, objectC)
 		if "+" in word:
 			for each in word.split("+"):
-				isWord, recWords = codecheck.spellcheck(word)
+				isWord, recWords = codecheck.spellcheck(each, n)
 				if not isWord:
-					errorList.append([row+2, word, recWords])
+					errorList.append([row+2, each, recWords])
 		else:
-			isWord, recWords = codecheck.spellcheck(word)
+			isWord, recWords = codecheck.spellcheck(word, n)
 			if not isWord:
 				errorList.append([row+2, word, recWords])
 		if hasBasic:
 			word = df.get_value(row, basicC)
-			isWord, recWords = codecheck.spellcheck(word)
-			if not isWord:
-				errorList.append([row+2, word, recWords])
-
+			if "+" in word:
+				for each in word.split("+"):
+					isWord, recWords = codecheck.spellcheck(each, n)
+					if not isWord:
+						errorList.append([row+2, each, recWords])
+			else:
+				isWord, recWords = codecheck.spellcheck(word, n)
+				if not isWord:
+					errorList.append([row+2, word, recWords])
 	return errorList
 
 
@@ -99,9 +118,12 @@ def clean(file):
 	return hasBasic, isAudio
 
 if __name__ == "__main__":
+	num = 10000
 
 	#input argument from terminal 
 	file = sys.argv[1]
+	if len(sys.argv) >= 3:
+		num = int(sys.argv[2])
 
 	#call main merge function
-	check(file)
+	check(file, num)
