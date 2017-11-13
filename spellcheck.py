@@ -45,6 +45,8 @@ def getError(df, hasBasic, isAudio, n):
 
 	for row in range(0, len(df.index)):
 		word = df.get_value(row, objectC)
+		if word.startswith("%com:"):
+			continue
 		if "+" in word:
 			for each in word.split("+"):
 				isWord, recWords = codecheck.spellcheck(each, n)
@@ -56,6 +58,8 @@ def getError(df, hasBasic, isAudio, n):
 				errorList.append([row+2, word, recWords])
 		if hasBasic:
 			word = df.get_value(row, basicC)
+			if word.startswith("%com:"):
+				continue
 			if "+" in word:
 				for each in word.split("+"):
 					isWord, recWords = codecheck.spellcheck(each, n)
