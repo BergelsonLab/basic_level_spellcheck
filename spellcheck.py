@@ -1,8 +1,8 @@
 import csv
 import pandas as pd
 import codecheck
-import re
 import sys
+import os
 
 #check spelling in basic_level and word/obejct column and print out error log csv
 def check(file, n):
@@ -21,7 +21,7 @@ def check(file, n):
 
 	printError(errorList, logPath)
 
-
+#print out error msg to terminal 
 def printError(errorlist, logPath):
 	asterisk = "********************************************************************"
 	nl = "\n"
@@ -43,8 +43,17 @@ def getError(df, hasBasic, isAudio, n):
 		objectC = "labeled_object.object"
 		basicC = "labeled_object.basic_level"
 
+	errorList = wordcheck(df, objectC, errorList, n)
+
+	if hasBasic:
+		errorList = wordcheck(df, basicC, errorList, n)
+
+	return errorList
+
+#check words in specific column
+def wordcheck(df, column, errorList, n):
 	for row in range(0, len(df.index)):
-		word = df.get_value(row, objectC)
+		word = df.get_value(row, column)
 		if word.startswith("%com:"):
 			continue
 		if "+" in word:
@@ -56,46 +65,15 @@ def getError(df, hasBasic, isAudio, n):
 			isWord, recWords = codecheck.spellcheck(word, n)
 			if not isWord:
 				errorList.append([row+2, word, recWords])
-		if hasBasic:
-			word = df.get_value(row, basicC)
-			if word.startswith("%com:"):
-				continue
-			if "+" in word:
-				for each in word.split("+"):
-					isWord, recWords = codecheck.spellcheck(each, n)
-					if not isWord:
-						errorList.append([row+2, each, recWords])
-			else:
-				isWord, recWords = codecheck.spellcheck(word, n)
-				if not isWord:
-					errorList.append([row+2, word, recWords])
 	return errorList
-
-
-#get single file name from path
-def getFileName(path):
-	pathList = re.split("\\\|/", path)
-	fileName = pathList[-1]
-	return fileName
-
-#combine path list into single path string
-def combinePath(pathList):
-	fullName = "/"
-	for i in range(len(pathList)):
-		if ".csv" in pathList[i] or not pathList[i]:
-			continue
-		fullName += pathList[i]
-		fullName += "/"
-	return fullName
 
 #get new_file_writeTo path
 def newpath(file, isAudio):
-	fileName = getFileName(file)
+	fileName = os.path.basename(file)
 	fileName = fileName.split(".")[0]
 	fileName += "_spellcheck_log.csv"
-	newpathList = re.split("\\\|/", file)
-	fullName = combinePath(newpathList)
-	fullName += fileName
+	newpath = os.path.split(file)[0]
+	fullName  = os.path.join(newpath, fileName)
 	return fullName
 
 #clean csv file for pandas dataframe reading and check file type
